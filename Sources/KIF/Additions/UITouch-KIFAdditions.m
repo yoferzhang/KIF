@@ -22,25 +22,16 @@ typedef struct {
     unsigned int _abandonForwardingRecord:1;
 } UITouchFlags;
 
-@interface UITouch ()
-
-
-- (void)setWindow:(UIWindow *)window;
-- (void)setView:(UIView *)view;
-- (void)setTapCount:(NSUInteger)tapCount;
-- (void)setIsTap:(BOOL)isTap;
-- (void)setTimestamp:(NSTimeInterval)timestamp;
-- (void)setPhase:(UITouchPhase)touchPhase;
-- (void)setGestureView:(UIView *)view;
-- (void)_setLocationInWindow:(CGPoint)location resetPrevious:(BOOL)resetPrevious;
-- (void)_setIsFirstTouchForView:(BOOL)firstTouchForView;
-- (void)_setIsTapToClick:(BOOL)tapToClick;
-
-- (void)_setHidEvent:(IOHIDEventRef)event;
-
-@end
-
 @implementation UITouch (KIFAdditions)
+
+- (UIView *)hitTestView {
+    UIView *hitTestView = objc_getAssociatedObject(self, @selector(hitTestView));
+    return hitTestView;
+}
+
+- (void)setHitTestView:(UIView *)hitTestView {
+    objc_setAssociatedObject(self, @selector(hitTestView), hitTestView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 
 - (id)initInView:(UIView *)view;
 {
@@ -56,14 +47,27 @@ typedef struct {
         return nil;
     }
     
+    [self setUITouchParams:point inWindow:window];
+    
+	return self;
+}
+
+- (id)initAtPoint:(CGPoint)point inView:(UIView *)view;
+{
+    return [self initAtPoint:[view.window convertPoint:point fromView:view] inWindow:view.window];
+}
+
+- (void)setUITouchParams:(CGPoint)point inWindow:(UIWindow *)window;
+{
     // Create a fake tap touch
     [self setWindow:window]; // Wipes out some values.  Needs to be first.
     
     [self setTapCount:1];
     [self _setLocationInWindow:point resetPrevious:YES];
     
-	UIView *hitTestView = [window hitTest:point withEvent:nil];
-    
+    UIView *hitTestView = [window hitTest:point withEvent:nil];
+    self.hitTestView = hitTestView;
+
     [self setView:hitTestView];
     [self setPhase:UITouchPhaseBegan];
     
@@ -92,13 +96,6 @@ typedef struct {
     if ([NSProcessInfo instancesRespondToSelector:@selector(isOperatingSystemAtLeastVersion:)] && [[NSProcessInfo new] isOperatingSystemAtLeastVersion:iOS9]) {
         [self kif_setHidEvent];
     }
-    
-	return self;
-}
-
-- (id)initAtPoint:(CGPoint)point inView:(UIView *)view;
-{
-    return [self initAtPoint:[view.window convertPoint:point fromView:view] inWindow:view.window];
 }
 
 //
